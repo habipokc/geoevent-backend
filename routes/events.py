@@ -146,3 +146,38 @@ async def get_category_stats():
     cursor = Event.get_pymongo_collection().aggregate(pipeline)
     stats = [doc async for doc in cursor]
     return stats
+
+
+# 8. METİN ARAMA (FULL TEXT SEARCH - DÜZELTİLMİŞ)
+@router.get("/search/", response_model=List[Event])
+async def search_events(
+    q: str = Query(..., min_length=3, description="Aranacak kelime")
+):
+    """
+    Başlık alanında metin araması yapar.
+    En alakalı sonuçları en üstte getirir.
+    """
+
+    # Pymongo'nun ham gücünü kullanıyoruz
+    collection = Event.get_pymongo_collection()
+
+    # 1. Sorgu (Query)
+    # $diacriticSensitive: False -> Türkçe şapkalı/noktalı harfleri tolere et
+    filter_query = {
+        "$text": {"$search": q, "$caseSensitive": False, "$diacriticSensitive": False}
+    }
+
+    # 2. İzdüşüm (Projection)
+    # Skor puanını hesapla ve veriye ekle
+    projection_query = {"score": {"$meta": "textScore"}}
+
+    # 3. Sıralama (Sort)
+    # Skoru en yüksek olanı en başa al
+    sort_criteria = [("score", {"$meta": "textScore"})]
+
+    cursor = collection.find(filter_query, projection_query).sort(sort_criteria)
+
+    # Cursor'ı listeye çevir
+    events = [Event(**doc) async for doc in cursor]
+
+    return events

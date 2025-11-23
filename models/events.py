@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
+import pymongo
 from beanie import Document
 from pydantic import BaseModel, Field
 
@@ -19,22 +20,28 @@ class Event(Document):
     description: Optional[str] = None  # İsteğe bağlı alan
     category: str  # Konser, Tiyatro vb.
     date: datetime  # Etkinlik zamanı
-    location: Location  # İşte embedding burada!
+    location: Location  # İşte embedding burada !
 
     # Ekstra bilgiler
     price: float = 0.0
+    capacity: int = 100  # Toplam kontenjan
+    sold_count: int = 0  # Satılan bilet sayısı
     created_at: datetime = Field(default_factory=datetime.now)
 
     class Settings:
-        name = "events"  # MongoDB'deki collection adı
+        name = "events"
 
-        # Indexes: Sorgu performansını artırmak için
-        # Burası çok önemli. Geo-spatial sorgular için "2dsphere" indeksi şart!
+        # Karmaşık index ayarları için 'IndexModel' kullanıyoruz.
         indexes = [
-            [("location", "2dsphere")],  # Konum bazlı arama için
-            [("title", "text")],  # Başlıkta kelime aramak için
-            "category",  # Kategoriye göre filtrelemek için
-            "date",  # Tarihe göre sıralamak için
+            [("location", "2dsphere")],  # Coğrafi index (Basit tanım)
+            "category",  # Basit index
+            "date",  # Basit index
+            # DETAYLI TEXT INDEX TANIMI (TÜRKÇE)
+            pymongo.IndexModel(
+                [("title", pymongo.TEXT)],  # Hangi alan: title, Tipi: Text
+                name="title_text_tr",  # İndeks adı (Atlas'ta böyle görünecek)
+                default_language="turkish",  # İŞTE ARADIĞIMIZ AYAR! 🇹🇷
+            ),
         ]
 
     class Config:
